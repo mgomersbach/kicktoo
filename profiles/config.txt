@@ -216,6 +216,8 @@ stage_latest - Determines the latest stage3 uri. Setting this
   Parameters:
     arch - A valid stage3 architecture hosted on Gentoo distfiles,
            for instance amd64, i686 or armv6j.
+    flavor - A valid stage3 flavor hosted on Gentoo distfiles,
+             for instance hardened or selinux.
 
 ===============================================================
 stage_uri - Specifies the URI to the stage tarball (required or

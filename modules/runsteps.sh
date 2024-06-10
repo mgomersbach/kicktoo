@@ -664,6 +664,8 @@ build_kernel() {
     check_emerge_installed_pkg "${kernel_sources}" ||
         spawn_chroot "emerge ${emerge_global_opts} ${kernel_sources}" || die "Could not emerge kernel sources"
 
+    spawn_chroot "eselect kernel set 1" || die "Could not set kernel sources"
+
     if [ "${kernel_builder}" == "genkernel" ]; then
         if [ -n "${kernel_config_uri}" ]; then
             fetch "${kernel_config_uri}" "${chroot_dir}/tmp/kconfig" || die "Could not fetch kernel config"

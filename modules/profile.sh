@@ -249,6 +249,7 @@ rootpw_crypt() {
 # Determines the latest stage3 uri
 stage_latest() {
     local arch=$1 # A valid stage3 architecture hosted on Gentoo distfiles
+    local flavor=${2:-openrc} # A valid stage3 flavor hosted on Gentoo distfiles
     local stage_mainarch
 
     # setting mainarch for autobuilds release dir
@@ -262,7 +263,7 @@ stage_latest() {
     hppa1.1 | hppa2.0)
         stage_mainarch="hppa"
         ;;
-    x32)
+    x32 | x86_64)
         stage_mainarch="amd64"
         ;;
     ppc | ppc64 | ppc64le)
@@ -284,12 +285,12 @@ stage_latest() {
     if [ -n "${arch}" ]; then
         local distfiles_base="${distfiles_url}/releases/${stage_mainarch}/autobuilds"
         local latest_stage
-        latest_stage=$(curl -s "${distfiles_base}"/latest-stage3-"${arch}".txt | grep -v "^#" | cut -d" " -f1)
+        latest_stage=$(curl -s "${distfiles_base}"/latest-stage3-"${arch}"-"${flavor}".txt | grep -v "^#" | grep -E 'tar.xz' | awk '{print $1}')
         [ -z "${latest_stage}" ] && die "Cannot find the relevant stage tarball, use stage_uri in your profile instead"
         if [ -n "${latest_stage}" ]; then
             stage_uri="${distfiles_base}/${latest_stage}"
             do_stage_uri=yes
-            debug stage_latest "latest stage uri is ${stage_uri}"
+            debug stage_latest "latest stage uri is ${stage_uri} for ${arch} ${flavor}"
         fi
     fi
 }
