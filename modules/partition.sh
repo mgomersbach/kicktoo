@@ -6,9 +6,16 @@ get_device_size_in_mb() {
     if [ -h "${device}" ]; then
         device=$(readlink "${device}")
     fi
-    device=$(echo "${device}" | sed -e 's:^/dev/::;s:/:\\/:g')
-    # just to make sure we don't go past the end of the drive
-    echo "$(($(</sys/class/block/"${device}"/size) / 2048 - 2))"
+
+    device=$(basename "${device}")
+    
+    if [[ "${device}" =~ ^nvme ]]; then
+        size=$(cat /sys/class/block/${device}/size)
+    else
+        size=$(cat /sys/class/block/${device}/size)
+    fi
+
+    echo "$((size / 2048 - 2))"
 }
 
 human_size_to_mb() {

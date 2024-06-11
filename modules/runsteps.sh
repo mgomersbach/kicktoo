@@ -14,11 +14,12 @@ run_pre_install_script() {
 }
 
 partition() {
-    for device in $(set | grep '^partitions_' | cut -d= -f1 | sed -e 's:^partitions_::'); do
+    for device_var in $(set | grep '^partitions_' | cut -d= -f1); do
+        device="${device_var#partitions_}"
         debug partition "device is ${device}"
-        local device_temp="partitions_${device}"
-        local device_size minor ptype size
-        device="/dev/${device/_/\/}"
+        local device_temp="${device_var}"
+        local device_size minor ptype size bootable devnode newsize inputsize
+        device="/dev/${device//_/\/}"
         device_size="$(get_device_size_in_mb "${device}")"
         create_disklabel "${device}" || die "Could not create disklabel for device ${device}"
         for partition in $(eval "echo \${${device_temp}}"); do
@@ -29,8 +30,6 @@ partition() {
             bootable=$(echo "${partition}" | cut -d: -f4)
             devnode=$(format_devnode "${device}" "${minor}")
             debug partition "devnode is ${devnode}"
-            # [E|S|L|X], where L (LINUX_NATIVE (83)) is the default, S is LINUX_SWAP (82), E is EXTENDED_PARTITION (5), and X is LINUX_EXTENDED (85).
-            # FIXME so.. 5 and 85 is not the same?
             if [ "${ptype}" == "E" ] || [ "${ptype}" == "5" ] || [ "${ptype}" == "85" ]; then
                 newsize="${device_size}"
                 inputsize=""
@@ -42,27 +41,21 @@ partition() {
                 inputsize="${newsize}"
             fi
             [ -n "${bootable}" ] && bootable="*"
-
             add_partition "${device}" "${minor}" "${inputsize}" "${ptype}" "${bootable}" || die "Could not add partition ${minor} to device ${device}"
         done
         if [ "$(get_arch)" != "sparc64" ]; then
-            # FIXME isnt it here where I should pad 2M at the very start of the device?
-            # writing added partitions to device
             sfdisk_command "${device}" || die "Could not write partitions ${partitions} to device ${device}"
-            # clear partitions for next device
             partitions=""
         fi
     done
 
-    # GPT partitioning
-    # http://www.funtoo.org/wiki/Funtoo_Linux_Installation#Prepare_Hard_Disk
-    for device in $(set | grep '^gptpartitions_' | cut -d= -f1 | sed -e 's:^gptpartitions_::'); do
+    for device_var in $(set | grep '^gptpartitions_' | cut -d= -f1); do
+        device="${device_var#gptpartitions_}"
         debug partition "device is ${device}"
-        local device_temp="gptpartitions_${device}"
-        local device device_size minor ptype size bootable devnode
-        device="/dev/${device/_/\/}"
+        local device_temp="${device_var}"
+        local device_size minor ptype size bootable devnode
+        device="/dev/${device//_/\/}"
         device_size="$(get_device_size_in_mb "${device}")"
-        # clean part table and convert to GPT
         spawn "sgdisk -og ${device}" || die "Cannot sgdisk -og ${device}"
         for partition in $(eval "echo \${${device_temp}}"); do
             debug partition "partition is ${partition}"
@@ -72,24 +65,19 @@ partition() {
             bootable=$(echo "${partition}" | cut -d: -f4)
             devnode=$(format_devnode "${device}" "${minor}")
             debug partition "devnode is ${devnode}"
-            # FIXME check if the boot option is even possible for sgdisk
             [ -n "${bootable}" ] && bootable="*"
-
-            [ "${size}" == "+" ] && size= # a single + is enough
+            [ "${size}" == "+" ] && size=""
             spawn "sgdisk -g -n ${minor}::+${size} -t ${minor}:${ptype} ${device}" || die "Could not add GPT partition ${minor} to ${device}"
-            #spawn "hdparm -z ${device}" || die "Could not update partition table to kernel"
         done
     done
 
-    # GPT partitioning using sectors
-    # http://www.rodsbooks.com/gdisk/sgdisk-walkthrough.html
-    for device in $(set | grep '^gptspartitions_' | cut -d= -f1 | sed -e 's:^gptspartitions_::'); do
+    for device_var in $(set | grep '^gptspartitions_' | cut -d= -f1); do
+        device="${device_var#gptspartitions_}"
         debug partition "device is ${device}"
-        local device_temp="gptspartitions_${device}"
+        local device_temp="${device_var}"
         local device_size minor ptype start end devnode
-        device="/dev/${device/_/\/}"
+        device="/dev/${device//_/\/}"
         device_size="$(get_device_size_in_mb "${device}")"
-        # clean part table and convert to GPT
         spawn "sgdisk -og ${device}" || die "Cannot sgdisk -og ${device}"
         for partition in $(eval "echo \${${device_temp}}"); do
             debug partition "partition is ${partition}"
@@ -99,13 +87,10 @@ partition() {
             end=$(echo "${partition}" | cut -d: -f4)
             devnode=$(format_devnode "${device}" "${minor}")
             debug partition "devnode is ${devnode}"
-
             spawn "sgdisk -g -n ${minor}:${start}:${end} -t ${minor}:${ptype} ${device}" || die "Could not add GPT partition ${minor} to ${device}"
-            #spawn "hdparm -z ${device}" || die "Could not update partition table to kernel"
         done
-        sleep 2 # this helps getting newly created partitions recognized by the system
+        sleep 2
     done
-
 }
 
 setup_mdraid() {
@@ -196,7 +181,7 @@ setup_luks() {
             *)
                 if [ -n "${luks_key}" ]; then
                     lukscmd="cryptsetup -q -c ${cipher}-cbc-essiv:${lhash} luksFormat ${devicetmp} /mnt/$(basename "${luks_remdev}")${luks_key} && \
-                        cryptsetup --key-file /mnt/$(basename "${luks_remdev}")${luks_key} luksOpen ${devicetmp} ${luks_mapper}"
+                            cryptsetup --key-file /mnt/$(basename "${luks_remdev}")${luks_key} luksOpen ${devicetmp} ${luks_mapper}"
                 else
                     lukscmd="echo ${boot_password} | cryptsetup -c ${cipher}-cbc-essiv:${lhash} luksFormat ${devicetmp} && echo ${boot_password} | cryptsetup luksOpen ${devicetmp} ${luks_mapper}"
                 fi
@@ -464,23 +449,7 @@ EOF
     done
 }
 
-create_makeconf() {
-    debug create_makeconf "writing to /etc/portage/make.conf"
-    O=$IFS
-    IFS=$(echo -en "\n\b")
 
-    for var in $(set | grep -E '^makeconf_[A-Z]'); do
-        var=$(echo "$var" | sed s/makeconf_//g | sed s/\'//g)
-        local key val
-        key=$(echo "$var" | cut -d= -f1)
-        val=$(echo "$var" | cut -d= -f2)
-        debug create_makeconf "appending ${key}=\"${val}\" to /etc/portage/make.conf"
-        cat >>"${chroot_dir}"/etc/portage/make.conf <<EOF
-${key}="${val}"
-EOF
-    done
-    IFS=$O
-}
 
 set_locale() {
     debug set_locale "configuring supported locales"
@@ -912,4 +881,22 @@ failure_cleanup() {
 
 trap_cleanup() {
     false
+}
+
+create_makeconf() {
+    debug create_makeconf "writing to /etc/portage/make.conf"
+    O=$IFS
+    IFS=$(echo -en "\n\b")
+
+    for var in $(set | grep -E '^makeconf_[A-Z]'); do
+        var=$(echo "$var" | sed s/makeconf_//g | sed s/\'//g)
+        local key val
+        key=$(echo "$var" | cut -d= -f1)
+        val=$(echo "$var" | cut -d= -f2)
+        debug create_makeconf "appending ${key}=\"${val}\" to /etc/portage/make.conf"
+        cat >>"${chroot_dir}"/etc/portage/make.conf <<EOF
+${key}="${val}"
+EOF
+    done
+    IFS=$O
 }
