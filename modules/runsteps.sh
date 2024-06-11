@@ -568,6 +568,9 @@ unpack_repo_tree() {
             spawn "tar --lzma -xpf ${chroot_dir}/${tarball} -C ${chroot_dir}/usr/portage" || die "Could not untar portage tarball"
         fi
     fi
+    # workaround so a binary packages are accepted
+    # TODO: move to separate function
+    spawn_chroot "getuto" || warn "Could not run getuto"
 }
 
 copy_kernel() {

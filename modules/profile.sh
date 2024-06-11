@@ -501,7 +501,7 @@ initramfs_binary() {
 #     kigen     - use KIGen to build the kernel and its initramfs (this is
 #                 required for LUKS enabled systems and genkernel won't work)
 kernel_builder() {
-    do_kernel=yes
+    do_kernel_build=yes
     local kb=$1
 
     kernel_builder="${kb}"

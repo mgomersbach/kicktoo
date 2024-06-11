@@ -8,12 +8,7 @@ get_device_size_in_mb() {
     fi
 
     device=$(basename "${device}")
-    
-    if [[ "${device}" =~ ^nvme ]]; then
-        size=$(cat /sys/class/block/${device}/size)
-    else
-        size=$(cat /sys/class/block/${device}/size)
-    fi
+    size=$(cat /sys/class/block/${device}/size)
 
     echo "$((size / 2048 - 2))"
 }

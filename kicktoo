@@ -370,7 +370,7 @@ fi
 [ "${do_kbin}" == "yes" ] && runstep copy_kernel "Copying pre compiled kernel"
 [ "${do_irfsbin}" == "yes" ] && runstep copy_initramfs "Copying pre packaged initramfs"
 [ "${do_kernel_uri}" == "yes" ] && runstep fetch_kernel_tarball "Fetching pre compiled kernel package"
-[ "${do_kernel}" == "yes" ] && runstep install_kernel_builder "Installing kernel builder"
+[ "${do_kernel_build}" == "yes" ] && runstep install_kernel_builder "Installing kernel builder"
 [ "${do_kernel}" == "yes" ] && runstep build_kernel "Building kernel"
 [ "${do_kernel_uri}" == "yes" ] && runstep unpack_kernel_tarball "Unpacking kernel tarball"
 [ "${do_irfs}" == "yes" ] && runstep install_initramfs_builder "Installing initramfs builder"
